@@ -1,0 +1,202 @@
+--select *
+--from CovidDeaths 
+--select*
+--from Covidvaccination
+delete
+from newCoviddeaths where population=0
+--order by 3,4
+
+select*
+from newCovidDeaths
+
+ALTER TABLE newCovidDeaths 
+ALTER COLUMN total_cases float;
+
+
+alter table newCoviddeaths
+alter column total_deaths float
+
+ select location,date,total_cases,new_cases,total_deaths,population
+ from newcovidDeaths 
+ order by 1,2
+ --looking at total cases vs total deaths
+select location,date,total_cases,new_cases,total_deaths,(total_deaths/nullif(total_cases,0))*100 as deathpercentage
+from newCovidDeaths where location like '%states%'
+order by 1,2 
+
+--looking at a total cases vs population
+
+alter table newcoviddeaths
+alter column population bigint
+
+select location,date ,population,total_cases,new_cases,(total_cases/population)*100 as populationinfectedpercentage
+from newCovidDeaths 
+where location like '%india%'
+order by 1,2 
+
+--looking at countires with highest infection rate compared to population
+
+select location,population,max(total_cases),max((total_cases/population)*100) as populationinfectedpercentage
+from newCovidDeaths --where location='india'
+group by location,population
+order by populationinfectedpercentage desc
+
+select location,population,min(total_cases),min((total_cases/population)*100) as populationinfectedpercentage
+from newCovidDeaths --where location='india'
+group by location,population
+order by populationinfectedpercentage desc
+
+--showing coountries with highest death count per population
+
+select*
+from newCovidDeaths 
+
+--lets break things dowm by continent
+select location,max(total_deaths) as "highest death count per population"
+from newCovidDeaths 
+where continent=''
+group by location
+order by "highest death count per population" desc
+
+select location,max(total_deaths) as "highest death count per population"
+from newCovidDeaths 
+where continent<>''
+group by location
+order by "highest death count per population" desc
+
+--global numbers
+select date,total_cases,total_deaths,(total_deaths/nullif(total_cases,0))*100 as deathpercentage
+from newCovidDeaths where continent <>''
+group by date,total_cases,total_deaths
+order by 1,2 
+
+select sum(cast (new_cases as int))--total_cases,total_deaths,--(total_deaths/nullif(total_cases,0))*100 as deathpercentage
+from newCovidDeaths 
+where continent <>''
+--group by date
+order by 1
+
+update newCovidDeaths
+set continent = null
+where continent=''
+
+select*
+from newCovidDeaths where continent ='null'
+
+-- total population vs vaccination
+select*
+from Covidvacination
+
+select count(*)
+from (select dea.continent,dea.location,dea.date,dea.population,
+vac.total_vaccinations, 
+(cast(vac.total_vaccinations as float)/cast(dea.population as float))*100 as vaccinatedpeople
+from newCovidDeaths dea 
+join Covidvacination vac
+on dea.location=vac.location
+and dea.date=vac.date 
+where (cast(vac.total_vaccinations as float)/cast(dea.population as float))*100 <>0)
+as total
+
+select dea.continent,dea.location,dea.date,dea.population,
+vac.total_vaccinations,vac.new_vaccinations,
+(cast(vac.total_vaccinations as float)/cast(dea.population as float))*100 as vaccinatedpeople
+from newCovidDeaths dea 
+join Covidvacination vac
+on dea.location=vac.location
+and dea.date=vac.date 
+--where dea.continent =''
+order by 1,2
+--where (cast(vac.total_vaccinations as float)/cast(dea.population as float))*100 <>0
+
+
+--unique continent-location pairs and the total sum of new_vaccinations for each location
+select dea.continent,dea.location--,vac.new_vaccinations--dea.date--,dea.population,vac.new_vaccinations
+,sum(cast(new_vaccinations as float)) --over (partition by dea.location) as sum
+from newCovidDeaths dea 
+join Covidvacination vac
+on dea.location=vac.location
+and dea.date=vac.date 
+where dea.continent <>'null'
+group by dea.continent,dea.location--,vac.new_vaccinations--,dea.date,dea.population,vac.new_vaccinations
+order by 1,2
+
+--total population vs vaccinations
+
+select dea.continent,dea.location,vac.new_vaccinations--dea.date--,dea.population,vac.new_vaccinations
+,sum(cast(new_vaccinations as float)) over (partition by dea.location order by dea.location,dea.date) as sum
+--(sum/population)*100
+from newCovidDeaths dea 
+join Covidvacination vac
+on dea.location=vac.location
+and dea.date=vac.date 
+where dea.continent <>'null' and vac.new_vaccinations<>0
+--group by dea.continent,dea.location--,vac.new_vaccinations--,dea.date,dea.population,vac.new_vaccinations
+order by 1,2
+
+--cte
+with pvsv (continent,location,date,population,new_vaccinations,sums)
+as
+(
+select dea.continent,dea.location,dea.date,vac.new_vaccinations,dea.population--,vac.new_vaccinations
+,sum(cast(new_vaccinations as float)) over (partition by dea.location order by dea.location,dea.date) as sums
+--(sum/population)*100
+from newCovidDeaths dea 
+join Covidvacination vac
+on dea.location=vac.location
+and dea.date=vac.date 
+where dea.continent <>'null' and vac.new_vaccinations<>0
+--group by dea.continent,dea.location--,vac.new_vaccinations--,dea.date,dea.population,vac.new_vaccinations
+--order by 1,2
+)
+
+select*,(sums/population)*100 
+from pvsv
+
+--temp table
+create table #percentpopulationvaccinated(
+continent nvarchar(225),
+location nvarchar(225),
+date nvarchar(225),
+new_vaccinations numeric,
+population numeric,
+sums numeric)
+insert into  #percentpopulationvaccinated
+select dea.continent,dea.location,dea.date,vac.new_vaccinations,dea.population--,vac.new_vaccinations
+,sum(cast(new_vaccinations as float)) over (partition by dea.location order by dea.location,dea.date) as sums
+from newCovidDeaths dea 
+join Covidvacination vac
+on dea.location=vac.location
+and dea.date=vac.date 
+where dea.continent <>'null' and vac.new_vaccinations<>0
+select*,(sums/population)*100 
+from  #percentpopulationvaccinated
+
+--drop table #percentpopulationvaccinated
+--ble #percentpopulationvaccinated as drop
+
+--procedure
+create procedure drop1
+as
+begin
+drop table #percentpopulationvaccinated 
+end;
+
+drop1
+
+-------------------------
+--
+
+-- creating view for later visualiztions
+create view percentpopulationvaccinated as
+select dea.continent,dea.location,vac.new_vaccinations--dea.date--,dea.population,vac.new_vaccinations
+,sum(cast(new_vaccinations as float)) over (partition by dea.location order by dea.location,dea.date) as sum
+from newCovidDeaths dea 
+join Covidvacination vac
+on dea.location=vac.location
+and dea.date=vac.date 
+where dea.continent <>'null' and vac.new_vaccinations<>0
+
+select*
+from percentpopulationvaccinated
+
