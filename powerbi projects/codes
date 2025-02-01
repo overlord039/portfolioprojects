@@ -1,0 +1,17 @@
+//sumx function
+profits_sumx = sumx('Apocolypse Sales',(('Apocolypse Store'[Price])-('Apocolypse Store'[Production Cost]))*('Apocolypse Sales'[Units Sold]))
+
+  
+//sum function
+sum of orders sold = sum('Apocolypse Sales'[Units Sold])
+profit = (sum('Apocolypse Store'[Price])-sum('Apocolypse Store'[Production Cost]))*sum('Apocolypse Sales'[Units Sold])
+
+//if
+  weekdays = if('Apocolypse Sales'[weekday]=1,"monday",if('Apocolypse Sales'[weekday]=2,"tue",if('Apocolypse Sales'[weekday]=3,"wed",if('Apocolypse Sales'[weekday]=4,"thur",if('Apocolypse Sales'[weekday]=5,"fri",if('Apocolypse Sales'[weekday]=6,"sat","sun"))))))
+  weekday = WEEKDAY('Apocolypse Sales'[Date Purchased],2)
+
+  order_size = if('Apocolypse Sales'[Units Sold]>25,"bigorder","smallorder")
+
+  //count
+  order count = count('Apocolypse Sales'[Order ID])
+Measure = count('Apocolypse Store'[Product ID])
